@@ -34,7 +34,6 @@ public class MainActivity extends AppCompatActivity {
     private DatabaseReference mUserDatabse;
     String mobile;
     private FirebaseUser mCurrentUser;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,24 +42,19 @@ public class MainActivity extends AppCompatActivity {
         toolbar = getSupportActionBar();
         mobile=getIntent().getStringExtra("mobile");
         bottomNavigationView = findViewById(R.id.navigation);
-
-
 //        mUserDatabse= FirebaseDatabase.getInstance().getReference();
 //        mCurrentUser= FirebaseAuth.getInstance().getCurrentUser();
 //        String current_user_id=mCurrentUser.getUid();
-//
 //        mUserDatabse.child("Users").child(current_user_id).child("mobile").setValue(mobile);
         CoordinatorLayout.LayoutParams layoutParams = (CoordinatorLayout.LayoutParams) bottomNavigationView.getLayoutParams();
         layoutParams.setBehavior(new BottomNavigationBehavior());
         toolbar.setTitle("Maps");
         if(isServiceOk()){
             loadFragment(new MapsFragment());
-
             bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
                 @Override
                 public boolean onNavigationItemSelected(@NonNull MenuItem item) {
                     Fragment fragment;
-
                     switch(item.getItemId()){
                         case R.id.navigation_maps:
                             //  Toast.makeText(MainActivity.this, "Hello profile", Toast.LENGTH_SHORT).show();
@@ -68,8 +62,6 @@ public class MainActivity extends AppCompatActivity {
                             fragment = new MapsFragment();
                             loadFragment(fragment);
                             return true;
-
-
                         // Toast.makeText(MainActivity.this, "Hello QR", Toast.LENGTH_SHORT).show();
                         case R.id.navigation_request_Blood:
                             // Toast.makeText(MainActivity.this, "Hello Maps", Toast.LENGTH_SHORT).show();
@@ -82,19 +74,11 @@ public class MainActivity extends AppCompatActivity {
                             fragment = new DonationHistoryFragment();
                             loadFragment(fragment);
                             return true;
-
-
-
                     }
-
                     return false;
                 }
             });
-
-
         }
-
-
     }
 
     @Override
@@ -139,8 +123,6 @@ public class MainActivity extends AppCompatActivity {
 //            finish();
 //        }
 //    }
-
-
     public boolean isServiceOk()
     {
         Log.d(TAG,"isServiceOk: checking google services version");
@@ -158,7 +140,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG,"isServiceOk: an error occured but we can fix it");
                 Dialog dialog=GoogleApiAvailability.getInstance().getErrorDialog(MainActivity.this,available,ERROR_DAILOG_REQUEST);
                 dialog.show();
-
             }
             else
             {
@@ -167,8 +148,5 @@ public class MainActivity extends AppCompatActivity {
             return false;
 
         }
-
     }
-
-
 }

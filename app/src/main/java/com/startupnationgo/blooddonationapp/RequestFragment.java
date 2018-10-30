@@ -4,6 +4,8 @@ import android.app.ActionBar;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.location.Address;
+import android.location.Geocoder;
 import android.net.Uri;
 import android.nfc.Tag;
 import android.os.Bundle;
@@ -11,18 +13,31 @@ import android.support.annotation.NonNull;
 import android.support.design.widget.TextInputEditText;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
+import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.location.places.AutocompletePrediction;
+import com.google.android.gms.location.places.Place;
+import com.google.android.gms.location.places.PlaceBuffer;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
@@ -39,16 +54,22 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.functions.FirebaseFunctions;
 import com.google.firebase.functions.HttpsCallableResult;
 import com.google.firebase.iid.FirebaseInstanceId;
+import com.startupnationgo.blooddonationapp.models.PlaceInfo;
 import com.startupnationgo.blooddonationapp.utils.SessionManagement;
 
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.net.ssl.SNIMatcher;
 
+import static android.support.constraint.Constraints.TAG;
 
-public class RequestFragment extends Fragment {
+
+public class RequestFragment extends Fragment implements GoogleApiClient.OnConnectionFailedListener {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -64,8 +85,12 @@ public class RequestFragment extends Fragment {
     private FirebaseAuth mAuth;
     private FirebaseFunctions mFunctions;
     private ProgressDialog progressDialog;
+    private GoogleApiClient mGoogleApiClient;
+    private PlaceInfo mPlace;
+    Address address;
 
-    String Sname,Smobile,Sbloodgroup,device_token,ShospitalAddress;
+   ArrayList<String> array=new ArrayList<>();
+    String Sname,Smobile,Sbloodgroup,device_token,ShospitalAddress,searchString;
 
     private static final String TAG="RequestFragment";
 
@@ -113,7 +138,12 @@ public class RequestFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-
+        mGoogleApiClient = new GoogleApiClient
+                .Builder(getContext())
+                .addApi(Places.GEO_DATA_API)
+                .addApi(Places.PLACE_DETECTION_API)
+                .enableAutoManage(getActivity(),  this)
+                .build();
         // Inflate the layout for this fragment
 //        ActionBar actionbar = getActivity().getActionBar();
 //        actionbar.setDisplayHomeAsUpEnabled(true);
@@ -140,6 +170,35 @@ public class RequestFragment extends Fragment {
 
         current_user_id=mCurrentUser.getUid();
 
+//        DatabaseReference rootRef = FirebaseDatabase.getInstance().getReference();
+//
+//        DatabaseReference usersdRef = rootRef.child("Users");
+//
+//        ValueEventListener eventListener = new ValueEventListener() {
+//            @Override
+//            public void onDataChange(DataSnapshot dataSnapshot) {
+//                for (DataSnapshot ds : dataSnapshot.getChildren()) {
+//
+//                    String userId = ds.getKey();
+//
+//                    //  String deviceTokens = ds.child("device_token").getValue(String.class);
+//
+//                    Log.d("TAG", userId);
+//
+//                    array.add(userId);
+//
+//                    Log.e("sfDDDddddddddgggggggggggg",array.toString());
+//
+//                }
+//
+//            }
+//
+//            @Override
+//            public void onCancelled(DatabaseError databaseError) {
+//
+//            }
+//        };
+
         mUserDatabase= FirebaseDatabase.getInstance().getReference().child("Users").child(current_user_id);
         mUserDatabase.addValueEventListener(new ValueEventListener() {
 
@@ -152,9 +211,44 @@ public class RequestFragment extends Fragment {
                 device_token=dataSnapshot.child("device_token").getValue().toString();
                 name.setText(Sname.toUpperCase());
                 mobileno.setText(Smobile);
+                searchString=mSearchText.getText().toString();
                 bloodgroup.setSelection(getIndex(bloodgroup,Sbloodgroup));
-                ShospitalAddress=mSearchText.getEditableText().toString();
+                mSearchText.setOnItemClickListener(mAutoCompleteListener);
+                mplaceAutocompleteAdapter =new PlaceAutocompleteAdapter(getActivity(),
+                        Places.getGeoDataClient(getActivity(),null),LAT_LNG_BOUNDS,null);
+                mSearchText.setAdapter(mplaceAutocompleteAdapter);
 
+
+
+
+
+//                mSearchText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+//                    @Override
+//                    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+//                        if(actionId== EditorInfo.IME_ACTION_SEARCH|| actionId==EditorInfo.IME_ACTION_DONE
+//                                || event.getAction()==KeyEvent.ACTION_DOWN
+//                                ||event.getAction()==KeyEvent.KEYCODE_ENTER){
+//                            //execute our method for searching
+//                            Geocoder geocoder=new Geocoder(getActivity());
+//                            List<Address> list=new ArrayList<>();
+//                            try {
+//                                list=geocoder.getFromLocationName(searchString,1);
+//                                                           } catch (IOException e) {
+//                                e.printStackTrace();
+//                            }
+//
+//                            if(list.size()>0) {
+//                                address = list.get(0);
+//                                Log.d(TAG, address.toString());
+//                                ShospitalAddress=address.getAddressLine(0);
+//                            }
+//                            return true;
+//                        }
+//                        return false;
+//                    }
+//                });
+
+                ShospitalAddress=mSearchText.getEditableText().toString();
             }
 
             @Override
@@ -166,15 +260,15 @@ public class RequestFragment extends Fragment {
 
         mplaceAutocompleteAdapter =new PlaceAutocompleteAdapter(getActivity(),
                 Places.getGeoDataClient(getActivity(),null),LAT_LNG_BOUNDS,null);
-
          send.setOnClickListener(new View.OnClickListener() {
              @Override
              public void onClick(View view) {
-
+                // Toast.makeText(getActivity(),ShospitalAddress,Toast.LENGTH_SHORT).show();
                  progressDialog.setTitle("Sending Request...");
                //  progressDialog.setMessage("Please wait while we creating your account");
                  progressDialog.setCancelable(false);
                  progressDialog.show();
+                 ShospitalAddress=mSearchText.getEditableText().toString();
                  sendRequest(device_token,Sname,Smobile,landmark.getEditableText().toString(),Sbloodgroup,ShospitalAddress);
 
              }
@@ -183,7 +277,7 @@ public class RequestFragment extends Fragment {
         return view;
     }
 
-    private void sendRequest(String device_token,String Sname,String Smobile,String landmark,String Sbloodgroup,String ShospitalAddress){
+    private void sendRequest(final String device_token, String Sname, String Smobile, String landmark, String Sbloodgroup, String ShospitalAddress){
 
         if(Sname.isEmpty()){
            name.setError("Name is Required");
@@ -205,20 +299,21 @@ public class RequestFragment extends Fragment {
             progressDialog.dismiss();
             return;
         }
-//        if(ShospitalAddress.isEmpty())
-//        {
-//            mSearchText.setError("Address is Required");
-//            mSearchText.requestFocus();
-//            progressDialog.dismiss();
-//            return;
-//        }
+        if(ShospitalAddress.isEmpty())
+        {
+            mSearchText.setError("Address is Required");
+            mSearchText.requestFocus();
+            progressDialog.dismiss();
+            return;
+        }
+
         mCurrentUser= FirebaseAuth.getInstance().getCurrentUser();
         HashMap<String,String>  notificationData=new HashMap<>();
         notificationData.put("token" , device_token);
         notificationData.put("name", Sname);
         notificationData.put("mobile",Smobile);
         notificationData.put("bloodgroup",Sbloodgroup);
-        notificationData.put("hospitAddress",ShospitalAddress);
+        notificationData.put("hospital",ShospitalAddress);
         notificationData.put("landmark",landmark);
         mNotificationReference.child(mCurrentUser.getUid()).setValue(notificationData).addOnSuccessListener(new OnSuccessListener<Void>() {
 
@@ -228,11 +323,14 @@ public class RequestFragment extends Fragment {
                 Toast.makeText(getActivity(),"Requested Successfully!",Toast.LENGTH_SHORT).show();
             }
         });
-       // mNotificationReference.child("token").setValue(FirebaseInstanceId.getInstance().getToken());
-
-
-
     }
+    @Override
+    public void onPause() {
+        super.onPause();
+        mGoogleApiClient.stopAutoManage(getActivity());
+        mGoogleApiClient.disconnect();
+    }
+
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
@@ -284,11 +382,9 @@ public class RequestFragment extends Fragment {
 
         if(item.getItemId()==R.id.main_notification)
         {
-            Fragment  fragment = new NotificationFragment();
-            FragmentTransaction transaction = getFragmentManager().beginTransaction();
-            transaction.replace(R.id.frame_container, fragment);
-            transaction.addToBackStack(null);
-            transaction.commit();
+            Intent i=new Intent(getActivity(),Notification.class);
+            startActivity(i);
+            //getActivity().finish();
 
         }
 
@@ -328,5 +424,62 @@ public class RequestFragment extends Fragment {
                     }
                 });
     }
+
+
+    private ResultCallback<? super PlaceBuffer> mUpdatePlaceDetailsCallback=new ResultCallback<PlaceBuffer>() {
+        @Override
+        public void onResult(@NonNull PlaceBuffer places) {
+            if(!places.getStatus().isSuccess())
+            {
+                Log.d(TAG,"places query did not complete successfully "+places.getStatus().toString());
+                places.release();
+                return;
+            }
+            final Place place=places.get(0);
+            try{
+                mPlace=new PlaceInfo();
+                mPlace.setName(place.getName().toString());
+                mPlace.setAddress(place.getAddress().toString());
+                mPlace.setPhoneNumber(place.getPhoneNumber().toString());
+                //   mPlace.setAttributions(place.getName().toString());
+                mPlace.setId(place.getId().toString());
+                mPlace.setLatLng(place.getLatLng());
+                mPlace.setWebsiteUri(place.getWebsiteUri());
+                mPlace.setRating(place.getRating());
+                Log.d(TAG,"OnResult: place details"+mPlace.toString());
+
+            }catch(NullPointerException e)
+            {
+                Log.e(TAG,"OnResult: NullPointerException"+e.getMessage());
+            }
+//            moveCamera(new LatLng(place.getViewport().getCenter().latitude,place.getViewport().getCenter().longitude),
+//                    DEFAULT_ZOOM,mPlace);
+//            Log.d(TAG,"OnResult:place details: "+place.getAttributions());
+//            Log.d(TAG,"OnResult:place details: "+place.getViewport());
+//            Log.d(TAG,"OnResult:place details: "+place.getAddress());
+//            Log.d(TAG,"OnResult:place details: "+place.getPhoneNumber());
+//            Log.d(TAG,"OnResult:place details: "+place.getLatLng());
+//            Log.d(TAG,"OnResult:place details: "+place.getId());
+//            Log.d(TAG,"OnResult:place details: "+place.getWebsiteUri());
+//            Log.d(TAG,"OnResult:place details: "+place.getRating());
+            places.release();
+        }
+    };
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
+
+    private AdapterView.OnItemClickListener mAutoCompleteListener=new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+            // hideSoftKeyboard();
+            final AutocompletePrediction item=mplaceAutocompleteAdapter.getItem(i);
+            final String placeId=item.getPlaceId();
+            PendingResult<PlaceBuffer> placeResult=Places.GeoDataApi.getPlaceById(mGoogleApiClient,placeId);
+            placeResult.setResultCallback(mUpdatePlaceDetailsCallback);
+        }
+    };
 
 }

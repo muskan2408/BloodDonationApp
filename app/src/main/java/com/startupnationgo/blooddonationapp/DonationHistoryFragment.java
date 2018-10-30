@@ -28,7 +28,6 @@ public class DonationHistoryFragment extends Fragment {
     private String mParam2;
     String mobile;
 
-
     public DonationHistoryFragment() {
         // Required empty public constructor
     }
@@ -42,6 +41,7 @@ public class DonationHistoryFragment extends Fragment {
      * @return A new instance of fragment DonationHistoryFragment.
      */
     // TODO: Rename and change types and number of parameters
+
     public static DonationHistoryFragment newInstance(String param1, String param2) {
         DonationHistoryFragment fragment = new DonationHistoryFragment();
         Bundle args = new Bundle();
@@ -75,15 +75,12 @@ public class DonationHistoryFragment extends Fragment {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu,inflater);
-
         getActivity().getMenuInflater().inflate(R.menu.main_menu, menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         super.onOptionsItemSelected(item);
-
-
         if(item.getItemId()==R.id.main_logout_btn)
         {
             FirebaseAuth.getInstance().signOut();
@@ -92,14 +89,13 @@ public class DonationHistoryFragment extends Fragment {
             startActivity(startIntent);
             getActivity().finish();
         }
-
-
         if(item.getItemId()==R.id.main_rate)
         {
             final String appPackageName = getActivity().getPackageName(); // getPackageName() from Context or Activity object
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + appPackageName)));
-            } catch (android.content.ActivityNotFoundException anfe) {
+            }
+            catch (android.content.ActivityNotFoundException anfe) {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + appPackageName)));
             }
         }
@@ -112,6 +108,7 @@ public class DonationHistoryFragment extends Fragment {
             sendIntent.setType("text/plain");
             startActivity(sendIntent);
         }
+
         if(item.getItemId()==R.id.main_profile)
         {
             Intent startIntent=new Intent(getActivity(), MyProfile.class) ;
@@ -119,17 +116,14 @@ public class DonationHistoryFragment extends Fragment {
             startActivity(startIntent);
             getActivity().finish();
         }
+
         if(item.getItemId()==R.id.main_notification)
         {
           Intent i=new Intent(getActivity(),Notification.class);
           startActivity(i);
           getActivity().finish();
-
         }
-
-
         return true;
     }
-
 
 }

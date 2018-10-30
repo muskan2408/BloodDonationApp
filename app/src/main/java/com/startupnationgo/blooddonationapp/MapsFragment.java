@@ -1,14 +1,20 @@
 package com.startupnationgo.blooddonationapp;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.location.Location;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
+import android.nfc.Tag;
 import android.os.Bundle;
+import android.widget.Button;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
@@ -29,7 +35,13 @@ import android.widget.AutoCompleteTextView;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.location.LocationManager;
 
+import com.directions.route.AbstractRouting;
+import com.directions.route.Route;
+import com.directions.route.RouteException;
+import com.directions.route.Routing;
+import com.directions.route.RoutingListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
@@ -37,6 +49,7 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.AutocompletePrediction;
 import com.google.android.gms.location.places.Place;
@@ -51,20 +64,32 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.location.places.GeoDataClient;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.maps.DirectionsApi;
+import com.google.maps.DirectionsApiRequest;
+import com.google.maps.GeoApiContext;
+import com.google.maps.model.DirectionsLeg;
+import com.google.maps.model.DirectionsResult;
+import com.google.maps.model.DirectionsRoute;
+import com.google.maps.model.DirectionsStep;
+import com.google.maps.model.EncodedPolyline;
 import com.startupnationgo.blooddonationapp.models.PlaceInfo;
 import com.startupnationgo.blooddonationapp.utils.SessionManagement;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import static android.app.Activity.RESULT_OK;
 import static android.support.constraint.Constraints.TAG;
+import static android.widget.Toast.LENGTH_SHORT;
 
 
-public class MapsFragment extends Fragment implements OnMapReadyCallback , GoogleApiClient.OnConnectionFailedListener{
+public class MapsFragment extends Fragment implements OnMapReadyCallback , GoogleApiClient.OnConnectionFailedListener,RoutingListener {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -80,7 +105,13 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
     private ImageView mgps , mInfo,mPlacePicker;
     private PlaceAutocompleteAdapter mplaceAutocompleteAdapter;
     private  static final int PLACE_PICKER_REQUEST = 1;
+    private List<Polyline> polylines;
+    private static final int POLYLINE_STROKE_WIDTH_PX = 12;
     SessionManagement session;
+   Button navigation;
+   String hospital;
+    Location currentLocation;
+    private static final int[] COLORS = new int[]{R.color.colorPrimaryDark,R.color.colorPrimary,R.color.colorAccent,R.color.black};
 
 
     private static final LatLngBounds LAT_LNG_BOUNDS=new LatLngBounds(new LatLng(-40,-168),new LatLng(71,136));
@@ -90,7 +121,6 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
     private String mParam2;
     private PlaceInfo mPlace;
     private Marker mMarker;
-
 
     public MapsFragment() {
         // Required empty public constructor
@@ -110,10 +140,20 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+//        mGoogleApiClient = new GoogleApiClient
+//                .Builder(getContext())
+//                .addApi(Places.GEO_DATA_API)
+//                .addApi(Places.PLACE_DETECTION_API)
+//                .enableAutoManage(getActivity(), this)
+//                .build();
         if (getArguments() != null) {
+
             mParam1 = getArguments().getString(ARG_PARAM1);
             mParam2 = getArguments().getString(ARG_PARAM2);
+            hospital=getArguments().getString("HospitalAddress");
+        }
+        else{
+            hospital="Choithram hospital";
         }
 
     }
@@ -135,9 +175,23 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
         mgps=(ImageView)view.findViewById(R.id.ic_gps);
         mInfo=(ImageView)view.findViewById(R.id.place_info);
         mPlacePicker=(ImageView)view.findViewById(R.id.place_picker);
+        navigation=(Button)view.findViewById(R.id.navigation);
+       navigation.setVisibility(View.GONE);
+       // mPlacePicker.setVisibility(View.GONE);
+       mgps.setVisibility(View.GONE);
+        polylines = new ArrayList<>();
         getLocationPermission();
+        erasePolylines();
         return view;
+
     }
+
+//    @Override
+//    public void onStart() {
+//        super.onStart();
+//        if (mGoogleApiClient != null)
+//            mGoogleApiClient.connect();
+//    }
 
     @Override
     public void onPause() {
@@ -145,7 +199,14 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
         mGoogleApiClient.stopAutoManage(getActivity());
         mGoogleApiClient.disconnect();
     }
-
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.stopAutoManage(getActivity());
+            mGoogleApiClient.disconnect();
+        }
+    }
     @Override
     public void onResume() {
         super.onResume();
@@ -240,6 +301,62 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
         });
           //
         // hideSoftKeyboard();
+       // Intent i=getActivity().getIntent();
+        //if(getArguments()==null)
+        // {
+        if(getActivity().getIntent().getExtras()==null)
+            {
+            navigation.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Uri gmmIntentUri = Uri.parse("google.navigation:q=22.7195680,75.857727");
+                    Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+                    mapIntent.setPackage("com.google.android.apps.maps");
+                    startActivity(mapIntent);
+                }
+            });
+        }
+        else{
+            navigation.setVisibility(View.VISIBLE);
+            mgps.setVisibility(View.VISIBLE);
+            mPlacePicker.setVisibility(View.VISIBLE);
+            mInfo.setVisibility(View.VISIBLE);
+           // hospital=getArguments().getString("HospitalAddress");
+            final String hospital=getActivity().getIntent().getStringExtra("HospitalAddress");
+            Log.e(TAG,"Hospital Address   :   "+hospital);
+            navigation.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Uri gmmIntentUri = Uri.parse("google.navigation:q= "+hospital);
+                    Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+                    mapIntent.setPackage("com.google.android.apps.maps");
+                    startActivity(mapIntent);
+                    if (mapIntent.resolveActivity(getActivity().getPackageManager()) != null) {
+
+
+                        startActivity(mapIntent);
+                    }
+
+                }
+            });
+
+        }
+    }
+    private void getRouteMarker(LatLng pickUpLatLng, LatLng start) {
+
+//        progressDialog = ProgressDialog.show(this, "Please wait.",
+//                "Fetching route information.", true);
+        Log.d("MDVCwwwwsffffvdccgvER","HELLO ing+droe");
+        Routing routing = new Routing.Builder()
+                .travelMode(AbstractRouting.TravelMode.DRIVING)
+                .withListener(this)
+                .alternativeRoutes(false)
+                .waypoints(start, pickUpLatLng)
+                .build();
+        routing.execute();
+        Log.e("Routing", String.valueOf(routing));
+
+
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -278,6 +395,7 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
     private void getDeviceLocation(){
         Log.d(TAG,"getting current device location");
         mfusedLocationProviderClient= LocationServices.getFusedLocationProviderClient(getActivity());
+
         try{
             if(mLocationPermissionGranted){
                 com.google.android.gms.tasks.Task location=mfusedLocationProviderClient.getLastLocation();
@@ -287,13 +405,109 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
                         if(task.isSuccessful())
                         {
                             Log.d(TAG,"found location!");
-                            Location currentLocation=task.getResult();
+                          currentLocation=task.getResult();
                             // getLocationPermission();
-                            moveCamera(new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude()),DEFAULT_ZOOM,"My Location");
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      moveCamera(new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude()),DEFAULT_ZOOM,"My Location");
+                        if(getActivity().getIntent().getExtras()!=null)
+                        {
+                           String hospital=getActivity().getIntent().getStringExtra("HospitalAddress");
+                            Geocoder coder = new Geocoder(getActivity());
+                            Address location = null;
+                            try {
+                                List<Address> address;
+                                address = coder.getFromLocationName(hospital,5);
+                                //return null;
+                                if (address==null)
+                                    Toast.makeText(getActivity(), "Address not found", LENGTH_SHORT).show();
+                                else {
+                                    location = address.get(0);
+                                    LatLng pickUpLatLng=new LatLng( location.getLatitude(),  location.getLongitude());
+                                    //LatLng pickUpLatLng=new LatLng(22.7533, 75.8937);
+
+
+                                    MarkerOptions options1 = new MarkerOptions()
+                                            .position(pickUpLatLng)
+                                            .title("Hospital");
+                                    mMap.addMarker(options1);
+                                    LatLng start=new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude());
+                                   moveCamera(pickUpLatLng,DEFAULT_ZOOM,"Hospital");
+
+//                                    Polyline polyline1 = mMap.addPolyline(new PolylineOptions()
+//                                            .clickable(true)
+//                                            .add(
+//                                                    new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude()),
+//                                                    new LatLng(location.getLatitude(),  location.getLongitude())));
+//                                    stylePolyline(polyline1);
+                                    GeoApiContext context = new GeoApiContext.Builder()
+                                            .apiKey("AIzaSyAZTxYIP8ZBdPs76JNU9BBjXZJjjZX7EE8")
+                                            .build();
+                                    List<LatLng> path = new ArrayList();
+                                    DirectionsApiRequest req = DirectionsApi.getDirections(context, currentLocation.getLatitude()+","+currentLocation.getLongitude(), location.getLatitude()+","+location.getLongitude());
+                                    try {
+                                        DirectionsResult res = req.await();
+                                        //Loop through legs and steps to get encoded polylines of each step
+                                        if (res.routes != null && res.routes.length > 0) {
+                                            DirectionsRoute route = res.routes[0];
+
+                                            if (route.legs !=null) {
+                                                for(int i=0; i<route.legs.length; i++) {
+                                                    DirectionsLeg leg = route.legs[i];
+                                                    if (leg.steps != null) {
+                                                        for (int j=0; j<leg.steps.length;j++){
+                                                            DirectionsStep step = leg.steps[j];
+                                                            if (step.steps != null && step.steps.length >0) {
+                                                                for (int k=0; k<step.steps.length;k++){
+                                                                    DirectionsStep step1 = step.steps[k];
+                                                                    EncodedPolyline points1 = step1.polyline;
+                                                                    if (points1 != null) {
+                                                                        //Decode polyline and add points to list of route coordinates
+                                                                        List<com.google.maps.model.LatLng> coords1 = points1.decodePath();
+                                                                        for (com.google.maps.model.LatLng coord1 : coords1) {
+                                                                            path.add(new LatLng(coord1.lat, coord1.lng));
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                EncodedPolyline points = step.polyline;
+                                                                if (points != null) {
+                                                                    //Decode polyline and add points to list of route coordinates
+                                                                    List<com.google.maps.model.LatLng> coords = points.decodePath();
+                                                                    for (com.google.maps.model.LatLng coord : coords) {
+                                                                        path.add(new LatLng(coord.lat, coord.lng));
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } catch(Exception ex) {
+                                        Log.e(TAG, ex.getLocalizedMessage());
+                                    }
+
+                                    //Draw the polyline
+                                    if (path.size() > 0) {
+                                        PolylineOptions opts = new PolylineOptions().addAll(path).color(Color.BLUE).width(5);
+                                        mMap.addPolyline(opts);
+                                    }
+
+                                    mMap.getUiSettings().setZoomControlsEnabled(true);
+
+//                                       erasePolylines();
+//                                    getRouteMarker(pickUpLatLng,start);
+
+                                }
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
                         }
                         else{
                             Log.d(TAG,"current location is null");
-                            Toast.makeText(getActivity(), "unable to get current location", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getActivity(), "unable to get current location", LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -305,16 +519,21 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
 
     }
 
+    private void stylePolyline(Polyline polyline) {
+        polyline.setWidth(POLYLINE_STROKE_WIDTH_PX);
+        polyline.setColor(R.color.colorPrimary);
+    }
+
     private void moveCamera(LatLng latLng,float zoom,String title){
         Log.d(TAG,"move the camera to: lat:"+latLng.latitude+" long:"+latLng.longitude);
 //        getLocationPermission();
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,zoom));
-        if(!title.equals("My Location")) {
+        //if(!title.equals("My Location")) {
             MarkerOptions options = new MarkerOptions()
                     .position(latLng)
                     .title(title);
             mMap.addMarker(options);
-        }
+       // }
     }
 
     private void moveCamera(LatLng latLng,float zoom,PlaceInfo placeInfo){
@@ -375,7 +594,6 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
             }
         });
     }
-
     private void getLocationPermission(){
         Log.d(TAG,"get Location Permission");
         String[] permissions={Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION};
@@ -520,12 +738,14 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
         {
             Intent startIntent=new Intent(getActivity(), MyProfile.class) ;
             //startIntent.putExtra("mobile",mobile);
+
             startActivity(startIntent);
             getActivity().finish();
         }
         if(item.getItemId()==R.id.main_notification)
         {
             Intent i=new Intent(getActivity(),Notification.class);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(i);
             //getActivity().finish();
 
@@ -533,5 +753,70 @@ public class MapsFragment extends Fragment implements OnMapReadyCallback , Googl
 
 
         return true;
+    }
+
+
+    @Override
+    public void onRoutingFailure(RouteException e) {
+        if(e != null) {
+            //   Toast.makeText(getActivity(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }else {
+            Toast.makeText(getActivity(), "Something went wrong, Try again", LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onRoutingStart() {
+
+    }
+
+    @Override
+    public void onRoutingSuccess(ArrayList<Route> route, int shortestIndexRoute) {
+        if(polylines.size()>0) {
+            for (Polyline poly : polylines) {
+                poly.remove();
+            }
+        }
+
+        polylines = new ArrayList<>();
+        //add route(s) to the map.
+        for (int i = 0; i <route.size(); i++) {
+
+            //In case of more than 5 alternative routes
+            int colorIndex = i % COLORS.length;
+
+            PolylineOptions polyOptions = new PolylineOptions();
+            polyOptions.color(getResources().getColor(COLORS[colorIndex]));
+            polyOptions.width(10 + i * 3);
+            polyOptions.addAll(route.get(i).getPoints());
+            Polyline polyline = mMap.addPolyline(polyOptions);
+            polylines.add(polyline);
+
+            //  Toast.makeText(getActivity(),"Route "+ (i+1) +": distance - "+ route.get(i).getDistanceValue()+": duration - "+ route.get(i).getDurationValue(),Toast.LENGTH_SHORT).show();
+        }
+
+
+    }
+
+    @Override
+    public void onRoutingCancelled() {
+
+    }
+
+    private  void  erasePolylines()
+    {
+        for(Polyline line : polylines)
+        {
+            line.remove();
+        }
+        polylines.clear();
+    }
+    private boolean isPackageInstalled(String packagename, PackageManager packageManager) {
+        try {
+            packageManager.getPackageInfo(packagename, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
     }
 }

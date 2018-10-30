@@ -102,7 +102,7 @@ public class Register extends AppCompatActivity {
                 String address=mAddress.getEditableText().toString();
                 String age=mAge.getEditableText().toString();
                 progressDialog=new ProgressDialog(Register.this);
-               progressDialog.setTitle("Registering User");
+                progressDialog.setTitle("Registering User");
                 progressDialog.setMessage("Please wait while we create your account");
                 progressDialog.setCancelable(false);
                 progressDialog.show();
@@ -141,8 +141,8 @@ public class Register extends AppCompatActivity {
             progressDialog.cancel();
             return;
         }
-        if(password.length()<=4){
-            mPassword.setError("Password too short,enter minimum 5 characters");
+        if(password.length()<=5){
+            mPassword.setError("Password too short,enter minimum 6 characters");
             mPassword.requestFocus();
             progressDialog.cancel();
             return;
@@ -205,7 +205,6 @@ public class Register extends AppCompatActivity {
                                     public void onComplete(@NonNull Task<Void> task) {
                                         if(task.isSuccessful())
                                         {
-
                                             progressDialog.dismiss();
                                             new AlertDialog.Builder(Register.this).setTitle("User Registered Successfully")
                                                     .setMessage("Please Login to Continue")

@@ -37,9 +37,6 @@ import java.util.concurrent.TimeUnit;
 public class EditMobile extends AppCompatActivity {
 
     private static final String TAG = "MobileAuthActivity";
-
-
-
     private ConstraintLayout phoneLayout,codeLayout;
     private TextInputLayout phoneET,codeET;
     private ProgressBar phoneProgress,codeProgress;
@@ -48,27 +45,20 @@ public class EditMobile extends AppCompatActivity {
     String phoneNumber;
     private DatabaseReference mDataBase;
     String user_id;
-
     private DatabaseReference mUserDatabse;
-
     private FirebaseAuth mAuth;
     DatabaseReference mFirebaseDatabaseReference;
-
     private int btnType = 0;
     private boolean isExist=false;
-
     private PhoneAuthProvider.OnVerificationStateChangedCallbacks mCallbacks;
     private String mVerificationId;
     FirebaseUser mfirebaseUser;
     protected PhoneAuthProvider.ForceResendingToken mResendToken;
 
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_mobile);
-
 
         mfirebaseUser=FirebaseAuth.getInstance().getCurrentUser();
         phoneLayout = findViewById(R.id.phoneLayout);
@@ -76,47 +66,35 @@ public class EditMobile extends AppCompatActivity {
 
         phoneET = findViewById(R.id.phoneET);
         codeET = findViewById(R.id.codeET);
-
         phoneProgress = findViewById(R.id.phoneProgress);
         codeProgress = findViewById(R.id.codeProgress);
         mUserDatabse= FirebaseDatabase.getInstance().getReference().child("Users");
-
         sendCodeBT = findViewById(R.id.sendCodeBT);
-
         errorText = findViewById(R.id.errorText);
         FirebaseApp.initializeApp(this);
 
-
         mAuth = FirebaseAuth.getInstance();
-
 
         sendCodeBT.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
-          Intent i= getIntent();
+                Intent i= getIntent();
           user_id=i.getStringExtra("user_id");
 
-
-
                 sendCodeBT.setError(null);
-
                 if (btnType==0) {
                     phoneNumber = phoneET.getEditText().getText().toString();
                     if(phoneNumber.length()==10){
                         phoneProgress.setVisibility(View.VISIBLE);
                         phoneET.setEnabled(false);
                         //sendCodeBT.setVisibility(View.GONE);
-
                         mFirebaseDatabaseReference=FirebaseDatabase.getInstance().getReference("Users");
                         Log.e(TAG,String.valueOf(mFirebaseDatabaseReference));
                         mFirebaseDatabaseReference.orderByChild("mobile").equalTo(phoneNumber).addValueEventListener(new ValueEventListener() {
-
                             @Override
                             public void onDataChange(DataSnapshot dataSnapshot) {
                                 Log.e(TAG,"OnDATACHANGE");
                                 if (dataSnapshot.exists()) {
-
                                     Log.d(TAG, "DataSnap Shots: " + dataSnapshot.getValue());
                                     /* if alredy exist and check for first time, second time isExist=true*/
                                     phoneET.setError("Mobile no. already exists enter different mobile number");
@@ -124,8 +102,6 @@ public class EditMobile extends AppCompatActivity {
                                     phoneET.setError(null);
                                 }
                                 else {
-
-
                                     PhoneAuthProvider.getInstance().verifyPhoneNumber(
                                             "+91" + phoneNumber,
                                             30,
@@ -133,44 +109,34 @@ public class EditMobile extends AppCompatActivity {
                                             EditMobile.this,
                                             mCallbacks);
                                 }
-
 //                        if(dataSnapshot.getValue()!=null) {
 //
 //                            Log.d(TAG, "DataSnap Shots: " + dataSnapshot.getValue());
 ////                                /* if alredy exist and check for first time, second time isExist=true*/
 //                            phoneET.setError("Mobile no. already exists enter different mobile number");
 //                        }else{
-
                             }
                             @Override
                             public void onCancelled(@NonNull DatabaseError databaseError) {
                                 Log.e(TAG,"databseError : OnCancelled");
                             }
-
                         });
-
 //                UserRecord userRecord = FirebaseAuth.getInstance().getUserByPhoneNumber(phoneNumber);
 //// See the UserRecord reference doc for the contents of userRecord.
 //                System.out.println("Successfully fetched user data: " + userRecord.getPhoneNumber());
-
                         PhoneAuthProvider.getInstance().verifyPhoneNumber(
                                 "+91"+phoneNumber,
                                 30,
                                 TimeUnit.SECONDS,
                                 EditMobile.this,
                                 mCallbacks);
-
-
                     }else {
                         phoneET.setError("Please enter a valid number...");
                     }
                 }else {
-
                     String code = codeET.getEditText().getText().toString();
-
                     if(code.length()!=6){
                         codeET.setError("Please enter a valid code");
-
                     }else {
                         sendCodeBT.setEnabled(false);
                         codeProgress.setVisibility(View.VISIBLE);
@@ -185,7 +151,6 @@ public class EditMobile extends AppCompatActivity {
             public void onVerificationCompleted(PhoneAuthCredential phoneAuthCredential) {
                 signInWithPhoneAuthCredential(phoneAuthCredential);
             }
-
             @Override
             public void onVerificationFailed(FirebaseException e) {
                 if (e instanceof FirebaseAuthInvalidCredentialsException) {
@@ -200,7 +165,6 @@ public class EditMobile extends AppCompatActivity {
                 }
                 errorText.setVisibility(View.VISIBLE);
             }
-
             @Override
             public void onCodeSent(String verificationId, PhoneAuthProvider.ForceResendingToken forceResendingToken) {
                 mVerificationId = verificationId;
@@ -231,7 +195,6 @@ public class EditMobile extends AppCompatActivity {
                             String deviceToken= FirebaseInstanceId.getInstance().getToken();
                             //  mNotificationReference.child("token").setValue(FirebaseInstanceId.getInstance().getToken());
 
-
                             new AlertDialog.Builder(EditMobile.this).setTitle("Mobile Updated Successfully")
                                     .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
                                         @Override
@@ -242,11 +205,8 @@ public class EditMobile extends AppCompatActivity {
                                         }
                                     }).show();
 
-
-
                             // Toast.makeText(getApplicationContext(),"valid",Toast.LENGTH_SHORT).show();
                             //Toast.makeText(MobileAuthActivity.this,"Code sent", Toast.LENGTH_SHORT).show();
-
                         } else {
                             // Sign in failed, display a message and update the UI
                             if (task.getException() instanceof FirebaseAuthInvalidCredentialsException) {
@@ -260,5 +220,4 @@ public class EditMobile extends AppCompatActivity {
                     }
                 });
     }
-
 }

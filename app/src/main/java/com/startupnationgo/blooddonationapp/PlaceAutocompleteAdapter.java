@@ -138,17 +138,14 @@ public class PlaceAutocompleteAdapter
             @Override
             protected FilterResults performFiltering(CharSequence constraint) {
                 FilterResults results = new FilterResults();
-
                 // We need a separate list to store the results, since
                 // this is run asynchronously.
                 ArrayList<AutocompletePrediction> filterData = new ArrayList<>();
-
                 // Skip the autocomplete query if no constraints are given.
                 if (constraint != null) {
                     // Query the autocomplete API for the (constraint) search string.
                     filterData = getAutocomplete(constraint);
                 }
-
                 results.values = filterData;
                 if (filterData != null) {
                     results.count = filterData.size();

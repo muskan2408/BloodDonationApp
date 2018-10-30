@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:id="@+id/maps"
     tools:context=".MapsFragment">
 
     <!-- TODO: Update blank fragment layout -->
@@ -85,6 +86,16 @@
             android:id="@+id/place_info"
             android:src="@drawable/ic_info"/>
 
+        <Button
+            android:id="@+id/navigation"
+            android:layout_width="356dp"
+            android:layout_height="35dp"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="73dp"
+            android:background="@color/colorPrimary"
+            android:text="Start Navigation"
+            android:textColor="#ffffff" />
 
 
     </RelativeLayout>

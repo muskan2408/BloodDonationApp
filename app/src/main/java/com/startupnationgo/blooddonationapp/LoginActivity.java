@@ -29,7 +29,6 @@ public class LoginActivity extends AppCompatActivity {
     private  TextInputLayout mEmail,mPassword;
     private FirebaseAuth mAuth;
     private DatabaseReference mUserDatabse;
-    private DatabaseReference mNotificationReference;
     SessionManagement session;
     String mobile;
 
@@ -46,7 +45,7 @@ public class LoginActivity extends AppCompatActivity {
         mAuth= FirebaseAuth.getInstance();
        session=new SessionManagement(getApplicationContext());
         mUserDatabse= FirebaseDatabase.getInstance().getReference().child("Users");
-        mNotificationReference= FirebaseDatabase.getInstance().getReference().child("Notification");
+
 //          Intent i=getIntent();
 //          mobile=i.getStringExtra("mobile");
 
@@ -93,6 +92,13 @@ public class LoginActivity extends AppCompatActivity {
             progressDialog.cancel();
             return;
         }
+        if(password.length()<=5)
+        {
+            mPassword.setError("Password must be of 6 characters");
+            mPassword.requestFocus();
+            progressDialog.cancel();
+            return;
+        }
 
         mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
             @Override
@@ -104,7 +110,6 @@ public class LoginActivity extends AppCompatActivity {
                      final String curent_user_id=mAuth.getCurrentUser().getUid();
                     String deviceToken= FirebaseInstanceId.getInstance().getToken();
 
-                  //  mNotificationReference.child("token").setValue(FirebaseInstanceId.getInstance().getToken());
 
                     mUserDatabse.child(curent_user_id).child("device_token").setValue(deviceToken).addOnSuccessListener(new OnSuccessListener<Void>() {
                           @Override

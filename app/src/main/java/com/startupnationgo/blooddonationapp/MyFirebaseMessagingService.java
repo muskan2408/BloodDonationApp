@@ -83,71 +83,130 @@
 //}
 
 
-
-
-
-
-
-
-
-
-
 package com.startupnationgo.blooddonationapp;
 
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.BitmapFactory;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Bundle;
+import android.os.Parcelable;
+import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.widget.TextView;
+import android.widget.Toast;
 
+import java.util.HashMap;
+import java.util.Map;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import com.google.gson.Gson;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Map;
 
 /**
  * Created by Jarvis on 15-07-2018.
  */
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
+    private DatabaseReference mUserDatabse;
+    JSONObject jsonObj;
+
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
         Log.d("FirebasemessageService", "FROM:" + remoteMessage.getFrom());
-
         //Check if the message contains data
         if(remoteMessage.getData().size() > 0) {
             Log.d("FirebasemessageService", "Message data: " + remoteMessage.getData());
         }
-
         //Check if the message contains notification
-
         if(remoteMessage.getNotification() != null) {
             Log.d("FirebasemessageService", "Message body:" + remoteMessage.getNotification().getBody());
-            sendNotification(remoteMessage.getNotification().getBody());
+
+            sendNotification(remoteMessage.getNotification().getBody(),remoteMessage.getNotification().getTitle(),remoteMessage.getData());
         }
     }
-    private void sendNotification(String body) {
+    private void sendNotification(String body, String title, Map<String, String> data) {
 
         Intent intent=new Intent(MyFirebaseMessagingService.this,Notification.class);
+        Log.d("data", String.valueOf(data));
+       // intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Gson gsonObj = new Gson();
+        String jsonStr = gsonObj.toJson(data);
+        intent.putExtra("content", jsonStr);
+//        if (data.containsKey("click_action")) {
+//            ClickActionHelper.startActivity(data.get("click_action"), jsonStr, this);
+//        }
+        try {
+            jsonObj = new JSONObject(jsonStr);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
 
+        String id = null;
+        try {
+            id = jsonObj.get("UserId").toString();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        FirebaseUser current_user = FirebaseAuth.getInstance().getCurrentUser();
+        String uid = current_user.getUid();
+        mUserDatabse = FirebaseDatabase.getInstance().getReference().child("Requests").child(uid);
+        mUserDatabse.push().setValue(id);
+
+        final String finalId = id;
+//        mUserDatabse.addValueEventListener(new ValueEventListener() {
+//            @Override
+//            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+//                // int a= (int) dataSnapshot.getChildrenCount();
+//                mUserDatabse.push().setValue(finalId);
+//
+//                }
+//
+//            @Override
+//            public void onCancelled(@NonNull DatabaseError databaseError) {
+//
+//            }
+//Ny8N5qT2
+//        });
+        intent.putExtra("id",id);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0/*Request code*/, intent, PendingIntent.FLAG_ONE_SHOT);
         //Set sound of notification
-        Uri notificationSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        long[] v = {500,1000, 500, 1000};
 
+        Uri notificationSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         NotificationCompat.Builder notifiBuilder = new NotificationCompat.Builder(this)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(),R.mipmap.blood))
                 .setSmallIcon(R.mipmap.blood)
-                .setContentTitle("Blood Request")
+                .setColor(getResources().getColor(R.color.transperent))
+                .setContentTitle(title)
                 .setContentText(body)
-                .setAutoCancel(true)
+                .setAutoCancel(false)
                 .setContentIntent(pendingIntent)
                 .setSound(notificationSound)
+                .setVibrate(v)
                 .setContentIntent(pendingIntent);
-
         NotificationManager notificationManager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.notify(0 , notifiBuilder.build());
-
+        notificationManager.notify(001 , notifiBuilder.build());
 //        Intent i=new Intent(MyFirebaseMessagingService.this,NotificationFragment.class);
 //        startActivity(i);
     }
 }
+
+
+
+

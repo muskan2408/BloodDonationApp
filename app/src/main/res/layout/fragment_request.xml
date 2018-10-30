@@ -167,7 +167,7 @@
                     android:inputType="text"
                     android:id="@+id/input_search"
                     android:background="@null"
-                    android:hint="Enter Address, City or ZipCode"
+                    android:hint="Enter Address or ZipCode"
                     android:layout_marginLeft="5dp"
                     />
 
@@ -185,6 +185,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Enter Nearby Landmark"
+                    android:inputType="text"
+                    android:maxLines="1"
                     android:id="@+id/landmark"
                     tools:text="Annapurna" />
             </android.support.design.widget.TextInputLayout>

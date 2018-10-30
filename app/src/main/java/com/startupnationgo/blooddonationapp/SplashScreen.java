@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SplashScreen extends AppCompatActivity {
-    private static int SPLASH_TIME_OUT=5000;
+    private static int SPLASH_TIME_OUT=6000;
     Context context;
     boolean gps_enabled=false;
    private FirebaseAuth mAuth;
@@ -43,12 +43,23 @@ public class SplashScreen extends AppCompatActivity {
 //    public SplashScreen(){
 //
 //    }
+//public void checkIntent(Intent intent) {
+//    if (intent.hasExtra("click_action")) {
+//        ClickActionHelper.startActivity(intent.getStringExtra("click_action"),, this);
+//    }
+//}
+//    @Override
+//    protected void onNewIntent(Intent intent) {
+//        super.onNewIntent(intent);
+//        checkIntent(intent);
+//    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash_screen);
         gps_enabled=checkLocation();
+      //  checkIntent(getIntent());
         FirebaseApp.initializeApp(this);
         LocationManager lm = (LocationManager)this.getSystemService(Context.LOCATION_SERVICE);
         boolean gps_enabled = false;
@@ -304,6 +315,7 @@ public class SplashScreen extends AppCompatActivity {
     private void showDialogOK(String message, DialogInterface.OnClickListener okListener) {
         new AlertDialog.Builder(this)
                 .setMessage(message)
+                .setCancelable(false)
                 .setPositiveButton("OK", okListener)
                 .setNegativeButton("Cancel", okListener)
                 .create()
@@ -312,6 +324,7 @@ public class SplashScreen extends AppCompatActivity {
     private void explain(String msg){
         final android.support.v7.app.AlertDialog.Builder dialog = new android.support.v7.app.AlertDialog.Builder(this);
         dialog.setMessage(msg)
+                .setCancelable(false)
                 .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface paramDialogInterface, int paramInt) {
@@ -335,6 +348,7 @@ public class SplashScreen extends AppCompatActivity {
         if (!checkInternet()) {
             new AlertDialog.Builder(SplashScreen.this)
                     .setTitle("No Internet Connection")
+                    .setCancelable(false)
                     .setMessage("Your device is not connected to Internet")
                     .setPositiveButton("Go To Settings", new DialogInterface.OnClickListener()
                     {
@@ -358,6 +372,7 @@ public class SplashScreen extends AppCompatActivity {
         } else   if(!checkLocation()){
             new AlertDialog.Builder(SplashScreen.this)
                     .setTitle("Unable to Access Location")
+                    .setCancelable(false)
                     .setMessage("Turn on your location to move further")
                     .setPositiveButton("Go To Settings", new DialogInterface.OnClickListener()
                     {
